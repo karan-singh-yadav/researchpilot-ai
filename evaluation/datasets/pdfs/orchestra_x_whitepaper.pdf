@@ -1,0 +1,58 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 319 >>
+stream
+BT /F1 11 Tf 14 TL 50 740 Td (Orchestra-X Whitepaper. Orchestra-X is a fictional orchestration framework used for offline) Tj T* (tests. It organizes agents as nodes in a directed graph with typed shared state. Checkpointing) Tj T* (after every step allows failed runs to resume without repeating completed work.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 311 >>
+stream
+BT /F1 11 Tf 14 TL 50 740 Td (Evaluation results. In the fictional 2026 Orchestra Benchmark, the supervised graph variant) Tj T* (completed 87% of multi-step tasks while the single-agent baseline completed 61%. Latency) Tj T* (increased by 2.4 seconds on average because of additional coordination steps.) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 247 >>
+stream
+BT /F1 11 Tf 14 TL 50 740 Td (Limitations and risks. Graph based orchestration adds operational complexity and requires) Tj T* (careful budget limits to prevent runaway loops. Human approval steps reduce risk but slow down) Tj T* (delivery.) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Title (Orchestra-X Whitepaper \(synthetic\)) >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000000693 00000 n 
+0000000819 00000 n 
+0000001181 00000 n 
+0000001307 00000 n 
+0000001605 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /Info 10 0 R >>
+startxref
+1673
+%%EOF

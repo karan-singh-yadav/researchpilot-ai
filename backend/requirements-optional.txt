@@ -1,0 +1,3 @@
+# Optional extras (not needed for the default offline setup)
+chromadb==1.5.9            # VECTOR_STORE=chroma (large: pulls onnxruntime, grpcio, ...)
+# sentence-transformers    # EMBEDDING_PROVIDER=sentence-transformers (pulls torch; downloads a model)

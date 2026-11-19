@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "researchpilot": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "app.mcp.server"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend",
+        "SEARCH_PROVIDER": "fixture",
+        "SEARCH_FIXTURE_PATH": "${workspaceFolder}/evaluation/datasets/fixtures/demo_web.json",
+        "DATABASE_URL": "sqlite:///${workspaceFolder}/backend/data/researchpilot.db"
+      }
+    }
+  }
+}

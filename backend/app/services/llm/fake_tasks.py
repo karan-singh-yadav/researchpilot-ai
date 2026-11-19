@@ -1,0 +1,184 @@
+"""Offline, EXTRACTIVE/templated handlers for the FakeLLM (not a language model).
+
+They pick verbatim sentences by keyword overlap and assemble templated findings/reports, so the
+full pipeline can run offline. Output quality is deliberately simple and is labelled as such.
+"""
+
+import json
+import re
+
+_STOP = set(
+    "the and for with that this from have has are was were been will their about into more most "
+    "than then they them which what when where who how its not but can also over under such".split()
+)
+_WORD = re.compile(r"[a-z0-9]{4,}")
+
+
+def _kw(text: str) -> set[str]:
+    return {w for w in _WORD.findall(text.lower()) if w not in _STOP}
+
+
+def _between(s: str, tag: str) -> str:
+    m = re.search(rf"<{tag}>\n?(.*?)\n?</{tag}>", s, re.S)
+    return m.group(1) if m else ""
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"\[S\d+\]", "", text)).strip().casefold()
+
+
+def evidence_handler(system: str, user: str) -> str:
+    focus_kw = _kw(_between(user, "task_focus"))
+    text = _between(user, "untrusted_source")
+    scored = []
+    for line in text.splitlines():
+        for sent in re.split(r"(?<=[.!?])\s+", line):
+            sent = sent.strip()
+            if not 40 <= len(sent) <= 500:
+                continue
+            overlap = len(focus_kw & _kw(sent))
+            if overlap:
+                scored.append((overlap, sent))
+    scored.sort(key=lambda t: -t[0])
+    items = []
+    for overlap, sent in scored[:4]:
+        items.append(
+            {
+                "passage": sent,
+                "claim": sent[:150],
+                "kind": "figure" if re.search(r"\d", sent) else "fact",
+                "relevance": min(1.0, overlap / 5),
+            }
+        )
+    return json.dumps({"items": items})
+
+
+def analysis_handler(system: str, user: str) -> str:
+    ev = re.findall(r"^\[(E\d+)\] \((S\d+),[^)]*\) (.+)$", _between(user, "evidence"), re.M)
+    findings = [
+        {
+            "statement": passage[:400] if len(passage) >= 10 else passage + " (see source)",
+            "evidence_ids": [eid],
+            "type": "fact",
+            "confidence": "medium",
+        }
+        for eid, _src, passage in ev[:12]
+    ]
+    distinct = len({s for _e, s, _p in ev})
+    focus = (
+        re.search(r"^Question: (.+)$", _between(user, "research_context"), re.M) or [None, "topic"]
+    )[1]
+    gaps = []
+    if distinct < 3:
+        gaps.append(
+            {
+                "description": "Few independent sources were found",
+                "follow_up_queries": [f"{focus[:120]} independent analysis"],
+            }
+        )
+    return json.dumps(
+        {
+            "findings": findings,
+            "contradictions": [],
+            "gaps": gaps,
+            "needs_more_research": distinct < 2,
+        }
+    )
+
+
+def _cite(token: str) -> str:
+    """'S2 p.4' -> '[S2, p.4]' ; 'S1' -> '[S1]'"""
+    m = re.match(r"(S\d+)(?: p\.(\d+))?", token.strip())
+    return f"[{m.group(1)}, p.{m.group(2)}]" if m and m.group(2) else f"[{m.group(1)}]"
+
+
+def writer_handler(system: str, user: str) -> str:
+    rows = re.findall(
+        r"^F\d+ \[([^\]]*)\] \((\w+), (\w+)\) (.+)$", _between(user, "findings"), re.M
+    )
+    outline = [
+        h
+        for h in _between(user, "outline").splitlines()
+        if h.strip() and h.strip().lower() not in {"executive summary", "references"}
+    ] or ["Findings"]
+    items = [(refs.split(","), stmt) for refs, _c, _t, stmt in rows if refs != "no-source"]
+    removed = [
+        _plain(m.group(1))
+        for m in re.finditer(
+            r"^Unsupported claim \(fix or remove\): (.+)$",
+            _between(user, "reviewer_feedback"),
+            re.M,
+        )
+    ]
+    if removed:
+        items = [
+            (r, st)
+            for r, st in items
+            if not any(_plain(st) in x or x in _plain(st) for x in removed)
+        ]
+    question = (re.search(r"^Research question: (.+)$", user, re.M) or [None, "Research report"])[1]
+    n_src = len({r.split()[0] for refs, _ in items for r in refs})
+    top = " ".join(f"{s} {_cite(r[0])}" for r, s in items[:2])
+    sections = []
+    for i, heading in enumerate(outline[:4]):
+        mine = items[i :: max(1, min(4, len(outline)))][:4]
+        if not mine:
+            continue
+        body = "\n".join(f"- {s} {_cite(r[0])}" for r, s in mine)
+        sections.append({"heading": heading, "body": body})
+    if not sections and items:
+        sections.append({"heading": "Findings", "body": f"- {items[0][1]} {_cite(items[0][0][0])}"})
+    return json.dumps(
+        {
+            "title": f"Research report: {question[:120]}",
+            "executive_summary": f"This report collects {len(items)} evidence-backed findings "
+            f"from {n_src} source(s). {top}".strip(),
+            "sections": sections,
+            "comparison_tables": [],
+            "limitations": "Generated by the offline templated writer (not a language model): "
+            "findings are extracted sentences, not synthesized analysis.",
+        }
+    )
+
+
+def claim_review_handler(system: str, user: str) -> str:
+    """Keyword-overlap support judge (offline stand-in for an LLM reviewer)."""
+    verdicts = []
+    for m in re.finditer(r"^\[C(\d+)\] (.+)\n  evidence: (.*)$", _between(user, "claims"), re.M):
+        cid, claim, ev = int(m.group(1)), re.sub(r"\[S\d+\]", "", m.group(2)), m.group(3)
+        ck = _kw(claim)
+        frac = len(ck & _kw(ev)) / len(ck) if ck else 0.0
+        verdict = "supported" if frac >= 0.5 else "partial" if frac >= 0.25 else "unsupported"
+        verdicts.append(
+            {"claim_id": cid, "verdict": verdict, "reason": f"keyword overlap {frac:.0%}"}
+        )
+    return json.dumps({"verdicts": verdicts})
+
+
+def document_answer_handler(system: str, user: str) -> str:
+    """Extractive Q&A stand-in: quotes the best-matching sentence from the passages."""
+    qk = _kw(_between(user, "question"))
+    best, best_ov = None, 0
+    for kid, _meta, text in re.findall(
+        r"^\[K(\d+)\] \(([^)]*)\) (.+)$", _between(user, "chunks"), re.M
+    ):
+        for sent in re.split(r"(?<=[.!?])\s+", text):
+            ov = len(qk & _kw(sent))
+            if ov > best_ov and len(sent) >= 20:
+                best, best_ov = (kid, sent.strip()), ov
+    if not best:
+        return json.dumps(
+            {
+                "answerable": False,
+                "answer": "The provided passages do not answer this question.",
+                "citations": [],
+            }
+        )
+    kid, sent = best
+    return json.dumps(
+        {
+            "answerable": True,
+            "answer": f"{sent[:600]} [K{kid}]",
+            "citations": [{"chunk": f"K{kid}", "quote": sent[:300]}],
+        }
+    )
