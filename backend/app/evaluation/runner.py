@@ -8,6 +8,8 @@ and wall-clock latency, storing structured results in `evaluation_runs` for regr
 """
 
 import json
+import shutil
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +17,6 @@ from typing import Literal
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.agents.critic import CriticAgent
 from app.agents.writer import check_draft_detailed
@@ -31,16 +32,18 @@ from app.tools.factory import build_fetcher, build_search_provider
 DEFAULT_CASES = [
     {
         "id": "agentic-overview",
-        "query": (
-            "Research the latest developments in agentic AI frameworks and compare architectures."
+                "query": (
+            "Research the latest developments in agentic AI frameworks "
+            "and compare architectures."
         ),
         "depth": "quick",
         "expected_terms": ["agentic", "framework"],
     },
     {
         "id": "agentic-risks",
-        "query": (
-            "Analyze limitations, prompt injection risks, and operational safeguards in agentic AI."
+                "query": (
+            "Analyze limitations, prompt injection risks, "
+            "and operational safeguards in agentic AI."
         ),
         "depth": "quick",
         "expected_terms": ["risk", "limitation"],
@@ -90,7 +93,7 @@ def run_evaluation_suite(
     cases: list[dict] | None = None,
     llm_override: LLMProvider | None = None,
 ) -> EvaluationRun:
-    """Execute benchmark cases under `baseline` or `improved` and save an EvaluationRun."""
+    """Execute benchmark cases under `baseline` or `improved` and persist an EvaluationRun row."""
     bench = cases or load_benchmark_cases()
     llm = llm_override or build_llm_provider(settings)
     search = build_search_provider(settings)
@@ -143,9 +146,14 @@ def run_evaluation_suite(
                     CaseMetric(cid, query, False, 0, 1, False, 0, ms, 0.0)
                 )
         else:
-            # Run isolated in-memory LangGraph workflow so benchmarks never pollute user sessions
+            # Run an isolated LangGraph workflow so benchmark runs don't pollute user sessions
+            # A temp-file DB with the default pool gives every worker thread its own
+            # connection. A single shared in-memory connection (StaticPool) is not safe when
+            # LangGraph runs research workers in parallel threads and can crash the process.
+            tmp_dir = tempfile.mkdtemp(prefix="rp-eval-")
             eng = create_engine(
-                "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+                f"sqlite:///{Path(tmp_dir, 'eval.db').as_posix()}",
+                connect_args={"check_same_thread": False, "timeout": 30},
             )
             enable_sqlite_fks(eng)
             Base.metadata.create_all(eng)
@@ -195,6 +203,7 @@ def run_evaluation_suite(
             )
             check_db.close()
             eng.dispose()
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     n = max(1, len(results))
     summary = {
