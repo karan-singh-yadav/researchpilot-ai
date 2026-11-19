@@ -2,7 +2,7 @@
 
 **A multi-agent research assistant that plans, searches, reads, writes, and verifies every citation.**
 
-[![CI](https://github.com/YOUR_USERNAME/researchpilot-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/researchpilot-ai/actions/workflows/ci.yml)
+[![CI](https://github.com/karan-singh-yadav/researchpilot-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/researchpilot-ai/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)
@@ -11,6 +11,10 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+
+A multi-agent research assistant. Give it a question and it plans the research,
+searches the web, reads sources, analyzes the evidence, writes a report, and
+verifies every citation before releasing it.
 
 Ask a question and ResearchPilot drafts a research plan for you to approve, runs specialist agents in parallel, and returns a report in which every claim links back to a verbatim source passage. Citations, statistics, and quotes are checked against the collected evidence before a report is released.
 
