@@ -1,5 +1,20 @@
 # ResearchPilot AI — Multi-Agent Research & Intelligence System
 
+A multi-agent research assistant. Give it a question and it plans the research,
+searches the web, reads sources, analyzes the evidence, writes a report, and
+verifies every citation before releasing it.
+
+**Features**
+- Human-approved research plan before any search runs
+- Specialist agents: Planner, Search, Reader, Analyst, Writer, Critic
+- Citation inspector: click any [S1] badge to see the verbatim source passage
+- PDF upload with page-level citations (document RAG)
+- Live execution trace, token/cost metrics, and an evaluation benchmark
+- Works with any OpenAI-compatible LLM (tested with Groq) and Tavily/Brave search
+- Offline demo mode with no API keys required
+
+**Stack:** FastAPI, LangGraph, SQLAlchemy, React, Vite, Tailwind CSS
+
 **Status: Phases 1–11 of 11 complete (Full-Stack Release).**
 
 ## Progress
