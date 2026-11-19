@@ -27,6 +27,14 @@ class OpenAICompatProvider:
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._client = client or httpx.Client(timeout=timeout)
 
+    def _post(self, payload: dict, headers: dict) -> httpx.Response:
+        try:
+            return self._client.post(self._url, json=payload, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise LLMError("LLM request timed out", retryable=True) from exc
+        except httpx.HTTPError as exc:
+            raise LLMError("LLM request failed (network error)", retryable=True) from exc
+
     def complete(
         self,
         *,
@@ -46,23 +54,19 @@ class OpenAICompatProvider:
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         if "groq.com" in self._url and "gpt-oss" in self.model:
             payload["reasoning_effort"] = "low"
         headers = {"Content-Type": "application/json"}
         if self._key:
             headers["Authorization"] = f"Bearer {self._key}"
-        try:
-            r = self._client.post(self._url, json=payload, headers=headers)
-        except httpx.TimeoutException as exc:
-            raise LLMError("LLM request timed out", retryable=True) from exc
-        except httpx.HTTPError as exc:
-            raise LLMError("LLM request failed (network error)", retryable=True) from exc
+        r = self._post(payload, headers)
         if r.status_code == 400 and json_mode and "json_validate_failed" in r.text:
+            # Some providers (e.g. Groq) reject JSON mode when the model's JSON is imperfect.
+            # Retry once without it; the caller's own JSON extraction/repair loop still applies.
             payload.pop("response_format", None)
-            try:
-                r = self._client.post(self._url, json=payload, headers=headers)
-            except httpx.HTTPError as exc:
-                raise LLMError("LLM request failed (network error)", retryable=True) from exc
+            r = self._post(payload, headers)
         if r.status_code == 429 or r.status_code >= 500:
             raise LLMError(
                 f"LLM provider returned HTTP {r.status_code}",
@@ -70,8 +74,11 @@ class OpenAICompatProvider:
                 status_code=r.status_code,
             )
         if r.status_code >= 400:
+            detail = r.text[:300]
+            if self._key:
+                detail = detail.replace(self._key, "[redacted]")
             raise LLMError(
-                f"LLM provider rejected the request (HTTP {r.status_code}): {r.text[:300]}",
+                f"LLM provider rejected the request (HTTP {r.status_code}): {detail}",
                 status_code=r.status_code,
             )
         try:
